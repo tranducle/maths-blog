@@ -39,7 +39,10 @@ export default async function ArticlePage({ params }: { params: Params }) {
       <TableOfContents entries={toc} />
 
       <div className="article-body">
-        <MarkdownRenderer markdown={post.bodyMarkdown} />
+        <MarkdownRenderer
+          markdown={post.bodyMarkdown}
+          tikzRenders={post.tikzRenders}
+        />
       </div>
 
       <div className="author-footer">

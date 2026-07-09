@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { assertAgentAuth } from "@/lib/agent-auth";
 import { checkAgentRateLimit } from "@/lib/rate-limit";
 import { validateCreate } from "@/lib/api-input";
+import { renderAndCacheTikz } from "@/lib/tikz-render";
 import { createPost, slugExists, listAll, listPublished } from "@/db/queries";
 
 // External AI agents authenticate with a bearer API key (AGENT_API_KEY), NOT the
@@ -112,6 +113,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Slug already in use" }, { status: 409 });
   }
 
-  const post = await createPost(result.input);
+  // Render ```tikz blocks to SVG via the LaTeX render service + cache to Blob.
+  // Never throws: on failure the post still saves and public pages fall back
+  // to client-side TikZJax.
+  const tikzRenders = await renderAndCacheTikz(result.input.bodyMarkdown ?? "", null);
+
+  const post = await createPost({
+    ...result.input,
+    tikzRenders: tikzRenders ? JSON.stringify(tikzRenders) : null,
+  });
   return NextResponse.json({ post }, { status: 201 });
 }

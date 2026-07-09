@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { assertAgentAuth } from "@/lib/agent-auth";
 import { checkAgentRateLimit } from "@/lib/rate-limit";
 import { normalizeTags } from "@/lib/api-input";
+import { renderAndCacheTikz, type TikzRenders } from "@/lib/tikz-render";
 import { updatePost, deletePost, getById, slugExists } from "@/db/queries";
 import { slugify } from "@/lib/slug";
 import type { NewPost } from "@/db/schema";
@@ -82,6 +83,21 @@ export async function PUT(req: Request, { params }: { params: Params }) {
   if (body.bodyMarkdown !== undefined) patch.bodyMarkdown = body.bodyMarkdown;
   if (body.status !== undefined)
     patch.status = body.status === "published" ? "published" : "draft";
+
+  // Re-render tikz blocks if the body changed (only new/changed diagrams are
+  // compiled; existing cached SVGs are reused by hash). Never throws.
+  if (patch.bodyMarkdown !== undefined) {
+    let existingRenders: TikzRenders | null = null;
+    try {
+      existingRenders = existing.tikzRenders
+        ? JSON.parse(existing.tikzRenders)
+        : null;
+    } catch {
+      existingRenders = null;
+    }
+    const renders = await renderAndCacheTikz(patch.bodyMarkdown, existingRenders);
+    patch.tikzRenders = renders ? JSON.stringify(renders) : null;
+  }
 
   const updated = await updatePost(id, patch);
   return NextResponse.json({ post: updated });

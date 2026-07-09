@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { assertSameOrigin } from "@/lib/csrf";
+import { renderAndCacheTikz } from "@/lib/tikz-render";
 import { createPost, slugExists } from "@/db/queries";
 import { slugify } from "@/lib/slug";
 import type { NewPost } from "@/db/schema";
@@ -67,6 +68,10 @@ export async function POST(req: Request) {
     bodyMarkdown: body.bodyMarkdown ?? "",
     status,
   };
+
+  // Render ```tikz blocks to LaTeX-quality SVG and cache. Never throws.
+  const tikzRenders = await renderAndCacheTikz(input.bodyMarkdown ?? "", null);
+  input.tikzRenders = tikzRenders ? JSON.stringify(tikzRenders) : null;
 
   const created = await createPost(input);
   return NextResponse.json({ post: created }, { status: 201 });

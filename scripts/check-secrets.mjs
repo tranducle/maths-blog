@@ -27,6 +27,7 @@ const SECRET_ENV_NAMES = [
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
   "AGENT_API_KEY",
+  "RENDER_API_KEY",
 ];
 
 // Collect actual secret *values* to grep for (if present in env at build time).

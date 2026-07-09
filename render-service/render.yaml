@@ -1,0 +1,19 @@
+# Render.com blueprint. Deploys the LaTeX/TikZ render service from the
+# render-service/ subdir as a Docker web service.
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: maths-blog-tikz-render
+    env: docker
+    # Render builds the Dockerfile inside render-service/.
+    rootDir: render-service
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MAX_CONCURRENT
+        value: "2"
+      - key: RENDER_API_KEY
+        sync: false # set manually in the Render dashboard (secret)

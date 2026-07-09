@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { assertSameOrigin } from "@/lib/csrf";
+import { renderAndCacheTikz, type TikzRenders } from "@/lib/tikz-render";
 import { updatePost, deletePost, slugExists, getById } from "@/db/queries";
 import { slugify } from "@/lib/slug";
 import type { NewPost } from "@/db/schema";
@@ -73,6 +74,16 @@ export async function PUT(req: Request, { params }: Params) {
     bodyMarkdown: body.bodyMarkdown ?? "",
     status,
   };
+
+  // Re-render tikz blocks (existing cached SVGs reused by hash). Never throws.
+  let existingRenders: TikzRenders | null = null;
+  try {
+    existingRenders = existing.tikzRenders ? JSON.parse(existing.tikzRenders) : null;
+  } catch {
+    existingRenders = null;
+  }
+  const tikzRenders = await renderAndCacheTikz(patch.bodyMarkdown ?? "", existingRenders);
+  patch.tikzRenders = tikzRenders ? JSON.stringify(tikzRenders) : null;
 
   const updated = await updatePost(id, patch);
   return NextResponse.json({ post: updated });

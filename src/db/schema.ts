@@ -21,6 +21,10 @@ export const posts = pgTable("posts", {
     .default(sql`ARRAY[]::text[]`),
   author: text("author").notNull().default("Anonymous"),
   bodyMarkdown: text("body_markdown").notNull().default(""),
+  // JSON (string) mapping tikz source-hash → cached SVG blob URL. Populated by
+  // renderAndCacheTikz() when a post is saved. null = not yet rendered → public
+  // pages fall back to client-side TikZJax.
+  tikzRenders: text("tikz_renders"),
   status: postStatus("status").notNull().default("draft"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

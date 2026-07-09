@@ -415,6 +415,24 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .tikz-figure { text-align: center; margin: 24px 0; }
 
+/* TikZ diagrams. Primary path: a LaTeX-compiled SVG cached as a Blob <img>
+   (rendered by the render-service). Fallback path: client-side TikZJax inline
+   SVG (lower fidelity). Style both consistently. */
+.tikz-figure img,
+.tikz-figure svg {
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+  overflow: visible;
+}
+/* TikZJax fallback: thicken the faint default strokes so the fallback still
+   reads OK when no cached SVG is available yet. */
+.tikz-figure svg path[fill="none"] {
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
 /* ── Author footer ── */
 .author-footer {
   margin: 48px 0;
