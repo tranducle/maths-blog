@@ -50,24 +50,18 @@ function getAgentLimiter(): Ratelimit | null {
 }
 
 /**
- * Agent API rate-limit: 60 requests/minute per key. Graceful in dev (skipped),
- * but FAILS CLOSED in production when Upstash isn't configured — an unthrottled
- * agent surface is a flood/abuse vector if the key leaks. Wire up Upstash env
- * vars to enable enforcement.
+ * Agent API rate-limit: 60 requests/minute per key. Graceful: if Upstash isn't
+ * configured, rate-limiting is skipped (with a one-time console.warn) so the
+ * agent still works — wire up Upstash env vars to enable enforcement. (Fail-
+ * closed was tried but it permanently blocks the agent when Upstash is
+ * intentionally omitted; the key itself is the primary abuse control.)
  */
 export async function checkAgentRateLimit(key: string): Promise<boolean> {
   const rl = getAgentLimiter();
   if (!rl) {
-    if (process.env.NODE_ENV === "production") {
-      // Fail closed: a misconfigured prod deployment should not be unthrottled.
-      console.error(
-        "[agent] BLOCKED: AGENT_API rate-limiting required in production but UPSTASH env is unset.",
-      );
-      return false;
-    }
     if (!agentWarned) {
       console.warn(
-        "[agent] AGENT_API rate-limiting is DISABLED (dev) — UPSTASH_REDIS_REST_URL/TOKEN not set.",
+        "[agent] AGENT_API rate-limiting is DISABLED — UPSTASH_REDIS_REST_URL/TOKEN not set.",
       );
       agentWarned = true;
     }
