@@ -11,11 +11,11 @@ export const runtime = "nodejs";
 type Params = Promise<{ id: string }>;
 
 function rateKey(req: Request): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("authorization")?.slice(-12) ||
-    "unknown"
-  );
+  // See sibling route for rationale: trust Vercel-set XFF, fall back to the
+  // bearer tail (single principal), never a shared "unknown" bucket.
+  const xff = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (xff) return xff;
+  return req.headers.get("authorization")?.slice(-16) ?? "no-auth";
 }
 
 type PatchInput = {

@@ -24,10 +24,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing credentials" }, { status: 400 });
   }
 
-  // RT-07: rate-limit keyed by IP + username.
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const allowed = await checkLoginRateLimit(`${ip}:${username}`);
+  // RT-07: rate-limit keyed by IP + username. On Vercel, x-forwarded-for is
+  // platform-set (trustworthy). If absent (rare), bucket by username alone so
+  // a missing header can't be used to dodge the per-IP limit; never use a
+  // shared "unknown" bucket (lets attackers crowd it or fan out).
+  const xff = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const rateBucket = xff ? `${xff}:${username}` : `noip:${username}`;
+  const allowed = await checkLoginRateLimit(rateBucket);
   if (!allowed) {
     return NextResponse.json(
       { error: "Too many attempts. Try again later." },

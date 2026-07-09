@@ -9,13 +9,15 @@ import { createPost, slugExists, listAll, listPublished } from "@/db/queries";
 export const runtime = "nodejs";
 
 function rateKey(req: Request): string {
-  // Best-effort per-client key; falls back to a constant so a missing header
-  // still gets bucketed (and the auth check rejects it anyway).
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("authorization")?.slice(-12) ||
-    "unknown"
-  );
+  // Bucket by client IP. On Vercel, `x-forwarded-for` is set by the platform
+  // (not the client), so it's trustworthy. If absent, fall back to the bearer
+  // token tail — all legit agent traffic is ONE principal, so this still
+  // collapses to a single bucket rather than letting an attacker fan out.
+  // Never use a shared constant ("unknown"), which would let attackers share
+  // one bucket and either crowd out the real agent or dodge per-IP limits.
+  const xff = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (xff) return xff;
+  return req.headers.get("authorization")?.slice(-16) ?? "no-auth";
 }
 
 /** GET /api/agent/posts — list/search posts. */
