@@ -29,3 +29,42 @@ export async function checkLoginRateLimit(key: string): Promise<boolean> {
   const { success } = await rl.limit(key);
   return success;
 }
+
+let agentLimiter: Ratelimit | null = null;
+let agentWarned = false;
+
+function getAgentLimiter(): Ratelimit | null {
+  if (agentLimiter) return agentLimiter;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+
+  agentLimiter = new Ratelimit({
+    redis: new Redis({ url, token }),
+    // 60 requests per minute per key — generous for a single authoring agent.
+    limiter: Ratelimit.slidingWindow(60, "60 s"),
+    prefix: "agent",
+    analytics: false,
+  });
+  return agentLimiter;
+}
+
+/**
+ * Agent API rate-limit: 60 requests/minute per key. Graceful: if Upstash isn't
+ * configured, rate-limiting is skipped (with a one-time console.warn) so the
+ * agent still works — wire up Upstash env vars to enable enforcement.
+ */
+export async function checkAgentRateLimit(key: string): Promise<boolean> {
+  const rl = getAgentLimiter();
+  if (!rl) {
+    if (!agentWarned) {
+      console.warn(
+        "[agent] AGENT_API rate-limiting is DISABLED — UPSTASH_REDIS_REST_URL/TOKEN not set.",
+      );
+      agentWarned = true;
+    }
+    return true;
+  }
+  const { success } = await rl.limit(key);
+  return success;
+}
