@@ -1,0 +1,890 @@
+
+<!doctype html>
+<html lang="en">
+<head><script>(function(){
+  function makeStore(){
+    var data = {};
+    var api = {
+      getItem: function(k){ return Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null; },
+      setItem: function(k, v){ data[k] = String(v); },
+      removeItem: function(k){ delete data[k]; },
+      clear: function(){ data = {}; },
+      key: function(i){ return Object.keys(data)[i] || null; }
+    };
+    Object.defineProperty(api, 'length', { get: function(){ return Object.keys(data).length; } });
+    return api;
+  }
+  function tryShim(name){
+    var works = false;
+    try { works = !!window[name] && typeof window[name].getItem === 'function'; void window[name].length; }
+    catch (_) { works = false; }
+    if (works) return;
+    try { Object.defineProperty(window, name, { configurable: true, value: makeStore() }); }
+    catch (_) { try { window[name] = makeStore(); } catch (__) {} }
+  }
+  tryShim('localStorage');
+  tryShim('sessionStorage');
+})();</script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Proof & Practice — Maths Teaching Blog</title>
+<style>
+  :root {
+    --bg:      oklch(97% 0.018 70);
+    --surface: oklch(99% 0.008 70);
+    --fg:      oklch(22% 0.02 50);
+    --muted:   oklch(50% 0.018 50);
+    --border:  oklch(90% 0.014 70);
+    --accent:  oklch(64% 0.13 28);
+
+    /* User palette override */
+    --black:   oklch(15% 0.02 60);
+    --yellow:  oklch(80% 0.14 95);
+    --orange:  oklch(65% 0.18 45);
+    --white:   oklch(99% 0.003 80);
+
+    --font-display: 'Iowan Old Style', 'Charter', Georgia, serif;
+    --font-body:    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+    --max-width: 720px;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font-body);
+    color: var(--black);
+    background: var(--white);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--orange); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  img { max-width: 100%; height: auto; display: block; }
+
+  /* ── Layout ── */
+  .wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ── Header / Nav ── */
+  .site-header {
+    background: var(--black);
+    color: var(--white);
+    padding: 16px 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .site-header .wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .logo {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--yellow);
+  }
+  .logo span { color: var(--orange); }
+  .nav-links { display: flex; gap: 24px; align-items: center; }
+  .nav-links a {
+    color: var(--white);
+    font-size: 0.9rem;
+    font-weight: 500;
+    opacity: 0.85;
+    transition: opacity 0.15s;
+  }
+  .nav-links a:hover { opacity: 1; text-decoration: none; }
+
+  .admin-btn {
+    background: var(--orange);
+    color: var(--white);
+    border: none;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .admin-btn:hover { opacity: 0.85; }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, var(--black) 0%, #2a1f0f 100%);
+    color: var(--white);
+    padding: 64px 0 56px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    line-height: 1.15;
+    margin-bottom: 16px;
+  }
+  .hero h1 em { color: var(--yellow); font-style: normal; }
+  .hero p {
+    font-size: 1.1rem;
+    max-width: 560px;
+    margin: 0 auto 24px;
+    opacity: 0.8;
+    line-height: 1.5;
+  }
+  .hero-tagline {
+    display: inline-block;
+    background: var(--orange);
+    color: var(--white);
+    padding: 8px 24px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    margin: 48px 0 24px;
+    padding-bottom: 8px;
+    border-bottom: 3px solid var(--yellow);
+    display: inline-block;
+  }
+
+  /* ── Blog grid (homepage) ── */
+  .blog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+  .blog-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: box-shadow 0.2s, transform 0.2s;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .blog-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+  }
+  .card-category {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--orange);
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    line-height: 1.3;
+    color: var(--black);
+  }
+  .card-excerpt {
+    font-size: 0.9rem;
+    color: var(--muted);
+    line-height: 1.5;
+    flex: 1;
+  }
+  .card-meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .card-tag {
+    background: var(--yellow);
+    color: var(--black);
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  /* ── Article page ── */
+  .article-container {
+    max-width: var(--max-width);
+    margin: 48px auto;
+    padding: 0 24px;
+  }
+  .article-header {
+    margin-bottom: 32px;
+  }
+  .article-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--orange);
+    margin-bottom: 8px;
+  }
+  .article-header h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+  .article-deck {
+    font-size: 1.1rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .article-byline {
+    font-size: 0.85rem;
+    color: var(--muted);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+  .article-byline strong { color: var(--black); }
+  .article-hero {
+    background: linear-gradient(135deg, var(--yellow) 0%, var(--orange) 100%);
+    border-radius: var(--radius);
+    height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--white);
+    font-family: var(--font-display);
+  }
+  .article-hero-caption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .article-body {
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: var(--black);
+  }
+  .article-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    margin: 40px 0 16px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--yellow);
+    display: inline-block;
+  }
+  .article-body p {
+    margin-bottom: 20px;
+    max-width: 65ch;
+  }
+  .article-body p:first-of-type::first-letter {
+    font-family: var(--font-display);
+    font-size: 3.2rem;
+    float: left;
+    line-height: 0.8;
+    margin-right: 8px;
+    margin-top: 4px;
+    color: var(--orange);
+    font-weight: 700;
+  }
+  .article-body blockquote {
+    border-left: 4px solid var(--orange);
+    padding: 16px 24px;
+    margin: 24px 0;
+    background: var(--surface);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-style: italic;
+    color: var(--muted);
+    font-size: 1.1rem;
+  }
+  .article-body ul, .article-body ol {
+    margin: 16px 0 20px 24px;
+  }
+  .article-body li { margin-bottom: 8px; }
+  .article-body .pullquote {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    line-height: 1.3;
+    padding: 24px 0 24px 24px;
+    margin: 32px 0;
+    border-left: 4px solid var(--yellow);
+    color: var(--black);
+    font-style: normal;
+  }
+  .article-body .figure {
+    margin: 32px 0;
+    text-align: center;
+  }
+  .article-body .figure-placeholder {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: var(--muted);
+    font-family: var(--font-display);
+  }
+  .article-body .figcaption {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .article-body .math {
+    font-family: var(--font-mono);
+    background: var(--bg);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.95rem;
+  }
+  .article-body .math-block {
+    font-family: var(--font-mono);
+    background: var(--black);
+    color: var(--yellow);
+    padding: 20px 24px;
+    border-radius: var(--radius);
+    margin: 24px 0;
+    overflow-x: auto;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  /* ── Author footer ── */
+  .author-footer {
+    margin: 48px 0;
+    padding: 24px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .author-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--orange);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    font-family: var(--font-display);
+  }
+  .author-bio h4 { margin-bottom: 4px; }
+  .author-bio p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── Related ── */
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+    margin: 32px 0 48px;
+  }
+  .related-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+  }
+  .related-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+  .related-thumb {
+    width: 100%;
+    height: 100px;
+    background: var(--bg);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    color: var(--muted);
+  }
+  .related-card h4 { font-size: 0.95rem; margin-bottom: 4px; }
+  .related-card p { font-size: 0.8rem; color: var(--muted); }
+  .related-card .date { font-size: 0.7rem; color: var(--muted); margin-top: 8px; }
+
+  /* ── Admin panel ── */
+  .admin-panel {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .admin-panel.open { display: flex; }
+  .admin-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 32px;
+    max-width: 520px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .admin-card h2 {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .admin-card .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .admin-card label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin: 16px 0 4px;
+  }
+  .admin-card input, .admin-card select, .admin-card textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-family: var(--font-body);
+    background: var(--bg);
+  }
+  .admin-card textarea { resize: vertical; min-height: 100px; }
+  .admin-card .form-row { display: flex; gap: 12px; }
+  .admin-card .form-row > * { flex: 1; }
+  .admin-card .submit-btn {
+    background: var(--orange);
+    color: var(--white);
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-top: 20px;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.15s;
+  }
+  .admin-card .submit-btn:hover { opacity: 0.85; }
+  .admin-card .existing-posts {
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+  .admin-card .existing-posts h3 { font-size: 0.95rem; margin-bottom: 12px; }
+  .admin-card .post-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .admin-card .post-list-item .delete-btn {
+    background: none;
+    border: 1px solid #e00;
+    color: #e00;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    cursor: pointer;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .site-header .wrapper { flex-wrap: wrap; justify-content: center; gap: 12px; }
+    .nav-links { flex-wrap: wrap; justify-content: center; gap: 12px; }
+    .hero { padding: 40px 0 32px; }
+    .blog-grid { grid-template-columns: 1fr; }
+    .author-footer { flex-direction: column; text-align: center; }
+    .related-grid { grid-template-columns: 1fr; }
+    .admin-card { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ─── -->
+<header class="site-header">
+  <div class="wrapper">
+    <div class="logo">Proof <span>&amp;</span> Practice</div>
+    <nav class="nav-links">
+      <a href="#">Home</a>
+      <a href="#">All Posts</a>
+      <a href="#">Topics</a>
+      <a href="#">About</a>
+      <button class="admin-btn" id="adminToggle">+ New Post</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ─── HERO ─── -->
+<section class="hero">
+  <div class="wrapper">
+    <h1>Teaching maths that <em>sticks</em>.</h1>
+    <p>Practical strategies, clear explanations, and honest reflections for high school and undergraduate maths — written by teachers, for teachers and students.</p>
+    <span class="hero-tagline">Latest: Why students struggle with fractions (and what works)</span>
+  </div>
+</section>
+
+<!-- ─── HOMEPAGE: BLOG GRID ─── -->
+<main>
+  <div class="wrapper" id="homepage">
+    <h2 class="section-title">Recent posts</h2>
+    <div class="blog-grid" id="blogGrid">
+      <!-- Posts injected by JS -->
+    </div>
+  </div>
+
+  <!-- ─── ARTICLE VIEW ─── -->
+  <div class="article-container" id="articleView" style="display:none;">
+    <div class="article-header">
+      <div class="article-eyebrow" id="articleCategory">Algebra</div>
+      <h1 id="articleTitle">Making Quadratic Functions Intuitive</h1>
+      <p class="article-deck" id="articleDeck">Why the standard form hides the story — and how to teach it visually.</p>
+      <div class="article-byline">
+        <span>By <strong id="articleAuthor">Sarah Chen</strong></span>
+        <span id="articleDate">April 28, 2026</span>
+        <span class="card-tag" id="articleTag">algebra</span>
+      </div>
+    </div>
+    <div class="article-hero">∫</div>
+    <div class="article-hero-caption">The integral symbol — a reminder that maths is about accumulation and change.</div>
+
+    <div class="article-body" id="articleBody">
+      <!-- Injected by JS -->
+    </div>
+
+    <div class="author-footer">
+      <div class="author-avatar">SC</div>
+      <div class="author-bio">
+        <h4>Sarah Chen</h4>
+        <p>Maths teacher and curriculum designer. 12 years in the classroom. Believes every student can learn maths — it just takes the right story and enough practice.</p>
+      </div>
+    </div>
+
+    <h2 class="section-title">You might also like</h2>
+    <div class="related-grid" id="relatedGrid">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+</main>
+
+<!-- ─── ADMIN PANEL ─── -->
+<div class="admin-panel" id="adminPanel">
+  <div class="admin-card">
+    <h2>New Post <button class="close-btn" id="adminClose">&times;</button></h2>
+    <form id="postForm">
+      <div class="form-row">
+        <div>
+          <label>Title</label>
+          <input type="text" id="formTitle" placeholder="e.g. Why Division by Zero is Undefined" required />
+        </div>
+        <div>
+          <label>Category</label>
+          <select id="formCategory">
+            <option>Algebra</option>
+            <option>Geometry</option>
+            <option>Calculus</option>
+            <option>Number Theory</option>
+            <option>Teaching Strategies</option>
+            <option>Student Stories</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Author</label>
+          <input type="text" id="formAuthor" placeholder="Your name" />
+        </div>
+        <div>
+          <label>Tag</label>
+          <input type="text" id="formTag" placeholder="e.g. algebra, fractions" />
+        </div>
+      </div>
+      <label>Deck (subtitle)</label>
+      <input type="text" id="formDeck" placeholder="A short summary for the card" />
+      <label>Body (HTML — use &lt;h2&gt;, &lt;p&gt;, &lt;blockquote&gt;, &lt;ul&gt;)</label>
+      <textarea id="formBody" placeholder="Write your article in HTML...&#10;&lt;h2&gt;A New Approach&lt;/h2&gt;&#10;&lt;p&gt;Here's what I've found works...&lt;/p&gt;"></textarea>
+      <button type="submit" class="submit-btn">Publish Post</button>
+    </form>
+
+    <div class="existing-posts">
+      <h3>Manage Posts</h3>
+      <div id="postList">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──
+const STORAGE_KEY = 'maths_blog_posts';
+
+function getPosts() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function savePosts(posts) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+}
+
+// ── SEED DATA ──
+function seedPosts() {
+  if (getPosts().length > 0) return;
+  const seeds = [
+    {
+      id: 'p1',
+      title: 'Making Quadratic Functions Intuitive',
+      category: 'Algebra',
+      author: 'Sarah Chen',
+      date: 'April 28, 2026',
+      tag: 'algebra',
+      deck: 'Why the standard form hides the story — and how to teach it visually.',
+      body: `<h2>The problem with "ax² + bx + c"</h2>
+<p>When students first see <span class="math">f(x) = ax² + bx + c</span>, their eyes glaze over. The standard form is useful for calculations, but it tells you nothing about what a quadratic <em>is</em>.</p>
+<p>I've found that starting with the graph — not the formula — changes everything. Draw a simple parabola on the board. Ask: "What do you notice?" Students see symmetry, a turning point, the shape getting steeper. That's the intuition we should build on.</p>
+
+<div class="pullquote">"A quadratic is just a number times a square, shifted. That's it. Everything else is details."</div>
+
+<h2>Three teaching moves that work</h2>
+<p>First, teach <strong>vertex form</strong> before standard form. Show that <span class="math">f(x) = a(x - h)² + k</span> directly tells you where the parabola lives and how stretched it is. Students can <em>see</em> the shift.</p>
+<p>Second, use graphing software. Let students drag sliders for <em>a</em>, <em>h</em>, and <em>k</em>. The pattern sticks because they discovered it themselves.</p>
+<p>Third, give them a real problem. "A ball is thrown from a 10m platform. Where does it land?" That's motivation standard form never provides.</p>
+
+<blockquote>One student told me: "I never understood why there were two answers. Now I see — the parabola crosses the x-axis in two places." — That's the moment we're all chasing.</blockquote>
+
+<h2>The research backs it up</h2>
+<p>A 2023 study in the Journal of Mathematics Education found that students who learned quadratics through vertex form first scored 23% higher on transfer problems than those who started with standard form. Intuition before computation.</p>
+<p>So next time you teach quadratics, start with the graph. Let the formula follow.</p>`
+    },
+    {
+      id: 'p2',
+      title: 'Why Students Struggle with Fractions (and What Works)',
+      category: 'Teaching Strategies',
+      author: 'James Okonkwo',
+      date: 'April 21, 2026',
+      tag: 'fractions',
+      deck: 'A concrete approach that turns "I hate fractions" into genuine understanding.',
+      body: `<h2>The fraction wall</h2>
+<p>Most students can add whole numbers. The moment fractions appear, the confidence vanishes. Why? Because fractions break the counting intuition students have spent years building.</p>
+<p>The fix is surprisingly simple: never start with the notation. Start with the <em>thing</em>. A chocolate bar. A pizza. A strip of paper. When students fold a paper strip into thirds and see that three "thirds" make one whole, the fraction symbol becomes a label for something they already understand.</p>
+
+<div class="figure">
+  <div class="figure-placeholder">½ ÷ ¼ = 2</div>
+  <span class="figcaption">Visualizing fraction division — how many quarters fit in a half?</span>
+</div>
+
+<h2>Common errors with fractions</h2>
+<ul>
+  <li><strong>Adding denominators</strong> — ½ + ¼ = 2/6. They're treating fractions as two separate numbers.</li>
+  <li><strong>Losing the whole</strong> — "Which is bigger, ½ or ¼?" Without a shared whole, the question stalls.</li>
+  <li><strong>Division is mysterious</strong> — "Why does ½ ÷ ¼ = 2? That doesn't make sense."</li>
+</ul>
+
+<p>The fix for all three: <strong>visual models</strong>. Area models, number lines, and real-world contexts. Once students <em>see</em> what fractions mean, the procedures follow naturally.</p>`
+    },
+    {
+      id: 'p3',
+      title: 'Three Proof Techniques Every Undergraduate Should Know',
+      category: 'Number Theory',
+      author: 'Dr. Elena Vasquez',
+      date: 'April 14, 2026',
+      tag: 'proofs',
+      deck: 'Direct proof, contrapositive, and induction — mastered in one afternoon.',
+      body: `<h2>Proof is not magic</h2>
+<p>Every undergraduate hits the wall: "How do I even start a proof?" The answer is a small set of reusable techniques. Master these three and you can handle 80% of what first-year analysis throws at you.</p>
+
+<h2>1. Direct proof</h2>
+<p>State what you know, apply definitions, reach the conclusion. Example: Prove that the sum of two even numbers is even.</p>
+<div class="math-block">
+Let a = 2m, b = 2n for integers m, n.<br />
+Then a + b = 2m + 2n = 2(m + n).<br />
+Since m + n is an integer, a + b is even. ∎
+</div>
+
+<h2>2. Proof by contrapositive</h2>
+<p>Instead of proving P → Q, prove ¬Q → ¬P. They're logically equivalent, and one is often easier.</p>
+
+<h2>3. Induction</h2>
+<p>Prove a base case. Assume it works for <em>k</em>. Show it works for <em>k+1</em>. The dominoes fall.</p>
+
+<blockquote>"But why does induction work?" Because the natural numbers are well-ordered. It's not a trick — it's a definition.</blockquote>`
+    }
+  ];
+  savePosts(seeds);
+}
+
+// ── RENDER HOMEPAGE ──
+function renderHomepage() {
+  const grid = document.getElementById('blogGrid');
+  const posts = getPosts();
+  grid.innerHTML = posts.map(p => `
+    <div class="blog-card" data-id="${p.id}">
+      <div class="card-category">${p.category}</div>
+      <div class="card-title">${p.title}</div>
+      <div class="card-excerpt">${p.deck || ''}</div>
+      <div class="card-meta">
+        <span>${p.author}</span>
+        <span>${p.date}</span>
+        <span class="card-tag">${p.tag}</span>
+      </div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.blog-card').forEach(card => {
+    card.addEventListener('click', () => openArticle(card.dataset.id));
+  });
+}
+
+// ── OPEN ARTICLE ──
+let currentArticleId = null;
+
+function openArticle(id) {
+  currentArticleId = id;
+  const posts = getPosts();
+  const post = posts.find(p => p.id === id);
+  if (!post) return;
+
+  document.getElementById('homepage').style.display = 'none';
+  document.getElementById('articleView').style.display = 'block';
+  document.getElementById('articleCategory').textContent = post.category;
+  document.getElementById('articleTitle').textContent = post.title;
+  document.getElementById('articleDeck').textContent = post.deck || '';
+  document.getElementById('articleAuthor').textContent = post.author || 'Anonymous';
+  document.getElementById('articleDate').textContent = post.date || '';
+  document.getElementById('articleTag').textContent = post.tag || '';
+  document.getElementById('articleBody').innerHTML = post.body || '';
+
+  // Related posts
+  const related = posts.filter(p => p.id !== id).slice(0, 3);
+  document.getElementById('relatedGrid').innerHTML = related.map(p => `
+    <div class="related-card" data-id="${p.id}">
+      <div class="related-thumb">∫</div>
+      <h4>${p.title}</h4>
+      <p>${(p.deck || '').slice(0, 60)}${(p.deck || '').length > 60 ? '…' : ''}</p>
+      <div class="date">${p.date}</div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('#relatedGrid .related-card').forEach(card => {
+    card.addEventListener('click', () => openArticle(card.dataset.id));
+  });
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── ADMIN ──
+document.getElementById('adminToggle').addEventListener('click', () => {
+  document.getElementById('adminPanel').classList.add('open');
+  renderPostList();
+});
+
+document.getElementById('adminClose').addEventListener('click', () => {
+  document.getElementById('adminPanel').classList.remove('open');
+});
+
+document.getElementById('adminPanel').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('adminPanel')) {
+    document.getElementById('adminPanel').classList.remove('open');
+  }
+});
+
+document.getElementById('postForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const title = document.getElementById('formTitle').value.trim();
+  if (!title) return;
+
+  const posts = getPosts();
+  const newPost = {
+    id: 'p' + Date.now(),
+    title,
+    category: document.getElementById('formCategory').value,
+    author: document.getElementById('formAuthor').value.trim() || 'Anonymous',
+    date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+    tag: document.getElementById('formTag').value.trim() || 'general',
+    deck: document.getElementById('formDeck').value.trim(),
+    body: document.getElementById('formBody').value.trim() || '<p>A post is on its way — check back soon.</p>'
+  };
+
+  posts.unshift(newPost);
+  savePosts(posts);
+  document.getElementById('postForm').reset();
+  renderPostList();
+  renderHomepage();
+});
+
+function renderPostList() {
+  const container = document.getElementById('postList');
+  const posts = getPosts();
+  if (posts.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No posts yet. Write your first one!</p>';
+    return;
+  }
+  container.innerHTML = posts.map(p => `
+    <div class="post-list-item">
+      <span>${p.title} <span style="color:var(--muted);font-size:0.75rem;">(${p.date})</span></span>
+      <button class="delete-btn" data-id="${p.id}">Delete</button>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      let posts = getPosts();
+      posts = posts.filter(p => p.id !== id);
+      savePosts(posts);
+      renderPostList();
+      renderHomepage();
+      if (currentArticleId === id) {
+        document.getElementById('homepage').style.display = 'block';
+        document.getElementById('articleView').style.display = 'none';
+        currentArticleId = null;
+      }
+    });
+  });
+}
+
+// ── INIT ──
+seedPosts();
+renderHomepage();
+
+// Allow back-to-home from article view via logo click
+document.querySelector('.logo').addEventListener('click', () => {
+  document.getElementById('homepage').style.display = 'block';
+  document.getElementById('articleView').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+</script>
+</body>
+</html>
