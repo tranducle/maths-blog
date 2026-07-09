@@ -50,6 +50,8 @@ const BLOCKED = [
 function latexTemplate(body, scale) {
   return [
     "\\documentclass[border=2pt]{standalone}",
+    "\\usepackage[utf8]{inputenc}",
+    "\\usepackage[T1]{fontenc}",
     "\\usepackage{tikz}",
     "\\usetikzlibrary{arrows.meta,calc,decorations.pathreplacing,positioning,shapes.geometric}",
     "\\begin{document}",
