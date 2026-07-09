@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       texlive-fonts-recommended \
       texlive-pictures \
       texlive-pstricks \
+      texlive-xetex \
+      fonts-dejavu \
       dvisvgm \
       ghostscript \
       ca-certificates \

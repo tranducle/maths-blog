@@ -48,10 +48,11 @@ const BLOCKED = [
 // NOT accept a full \\documentclass from the client — only the tikzpicture body
 // — so the toolchain + packages stay under our control.
 function latexTemplate(body, scale) {
+  // xelatex compiles Unicode (incl. Vietnamese, accent marks, CJK) natively —
+  // no inputenc needed, no "Unicode character not set up" errors. We target
+  // XDV (not PDF) so dvisvgm can convert to SVG.
   return [
     "\\documentclass[border=2pt]{standalone}",
-    "\\usepackage[utf8]{inputenc}",
-    "\\usepackage[T1]{fontenc}",
     "\\usepackage{tikz}",
     "\\usetikzlibrary{arrows.meta,calc,decorations.pathreplacing,positioning,shapes.geometric}",
     "\\begin{document}",
@@ -94,16 +95,18 @@ app.post("/convert", async (req, res) => {
   try {
     await writeFile(join(dir, "equation.tex"), latexTemplate(latexInput, scaleNum));
 
-    // latex → DVI, then dvisvgm → SVG. -no-shell-escape prevents \\write18.
-    // timeout kills a stuck compile so one bad input can't hang the service.
+    // xelatex → XDV (Unicode-safe), then dvisvgm → SVG. xelatex handles
+    // Vietnamese/accented/CJK text without inputenc. -no-shell-escape prevents
+    // \\write18. timeout kills a stuck compile so one bad input can't hang us.
     await execFileAsync(
       "timeout",
       [
         `${COMPILE_TIMEOUT_MS / 1000}`,
-        "latex",
+        "xelatex",
         "-no-shell-escape",
         "-interaction=nonstopmode",
         "-halt-on-error",
+        "-no-pdf", // emit .xdv for dvisvgm instead of .pdf
         "-output-directory",
         dir,
         join(dir, "equation.tex"),
@@ -120,7 +123,7 @@ app.post("/convert", async (req, res) => {
         "--exact",
         "-o",
         join(dir, "out.svg"),
-        join(dir, "equation.dvi"),
+        join(dir, "equation.xdv"),
       ],
       { cwd: dir, maxBuffer: 8 * 1024 * 1024, timeout: 15_000 },
     );
@@ -128,8 +131,14 @@ app.post("/convert", async (req, res) => {
     const svg = await readFile(join(dir, "out.svg"), "utf8");
     res.json({ svg });
   } catch (err) {
-    const msg = err.stderr?.toString().split("\n").find((l) => /^!/.test(l)) || "Compile failed.";
-    res.status(500).json({ error: msg.slice(0, 300) });
+    const stderr = err.stderr?.toString() || "";
+    // First line starting with "!" is the LaTeX error; fall back to "Missing"
+    // or any "Error" line, then the generic message.
+    const line =
+      stderr.split("\n").find((l) => /^!/.test(l)) ||
+      stderr.split("\n").find((l) => /Missing|Error|Undefined|not loadable/i.test(l)) ||
+      "Compile failed.";
+    res.status(500).json({ error: line.slice(0, 300) });
   } finally {
     inflight--;
     rm(dir, { recursive: true, force: true }).catch(() => {});
