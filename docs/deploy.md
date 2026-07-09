@@ -7,6 +7,13 @@ the agent has already done every prep step that doesn't need your credentials.
 > **Time:** ~25–40 min the first time.
 > **Cost:** all resources have free tiers sufficient for a personal blog.
 
+> **First deployment (done, 2026-07-08):** Supabase Postgres (`maths-blog-db`,
+> ref `rbhhgyeoqpqvynsphamt`) + Vercel Blob (`maths-blog-blob`, public) on the
+> `letranducuqtr-2979` account. Live at **https://maths-blog.vercel.app**.
+> To **redeploy** after code changes: `vercel --prod --token $VERCEL_TOKEN`.
+> The DB driver is `postgres` (postgres-js) — NOT `@vercel/postgres`, which only
+> accepts Neon connection strings.
+
 ---
 
 ## 0. Prerequisites
