@@ -1,8 +1,8 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { sql } from "@vercel/postgres";
-import { drizzle } from "drizzle-orm/vercel-postgres";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "../src/db/schema";
 import { seedPosts } from "./seed-data";
 
@@ -13,7 +13,8 @@ async function main() {
     throw new Error("POSTGRES_URL is not set. Add it to .env.local first.");
   }
 
-  const db = drizzle(sql, { schema });
+  const client = postgres(process.env.POSTGRES_URL, { prepare: false });
+  const db = drizzle(client, { schema });
 
   const inserted = await db
     .insert(schema.posts)
@@ -28,6 +29,7 @@ async function main() {
 
   const total = await db.select({ slug: schema.posts.slug }).from(schema.posts);
   console.log(`Total posts in DB: ${total.length}`);
+  await client.end();
   process.exit(0);
 }
 
