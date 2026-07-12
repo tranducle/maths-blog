@@ -2,83 +2,70 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// RT-05: React never executes a markup-injected <script>. TikZJax works by
-// scanning for <script type="text/tikz"> elements, so we inject a REAL script
-// node imperatively, load the TikZJax runtime once, and tear down on change.
-// Assets are self-hosted under public/tikzjax (version-pinned). On any failure
-// we render the source as a fallback so the page never breaks.
-
-let tikzRuntimeLoaded = false;
-let tikzRuntimeLoading: Promise<void> | null = null;
-
-function loadTikzRuntime(): Promise<void> {
-  if (tikzRuntimeLoaded) return Promise.resolve();
-  if (tikzRuntimeLoading) return tikzRuntimeLoading;
-
-  tikzRuntimeLoading = new Promise<void>((resolve, reject) => {
-    // TikZJax CSS (fonts) — harmless if it 404s in dev before assets are added.
-    if (!document.querySelector('link[data-tikzjax]')) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = "/tikzjax/fonts.css";
-      link.setAttribute("data-tikzjax", "true");
-      document.head.appendChild(link);
-    }
-    const script = document.createElement("script");
-    script.src = "/tikzjax/tikzjax.js";
-    script.async = true;
-    script.onload = () => {
-      tikzRuntimeLoaded = true;
-      resolve();
-    };
-    script.onerror = () => reject(new Error("TikZJax runtime failed to load"));
-    document.body.appendChild(script);
-  });
-  return tikzRuntimeLoading;
-}
+// Renders a TikZ snippet to SVG by calling the app's render proxy
+// (/api/render-tikz), which forwards to the LaTeX render service server-side.
+// This keeps the RENDER_API_KEY off the client and produces LaTeX-quality SVG.
+//
+// Previously this loaded the TikZJax WASM runtime, but that runtime only scans
+// for <script type="text/tikz"> once on window.onload — so dynamically-added
+// diagrams (editor preview, re-renders) were never processed. The proxy path
+// works on demand and matches the public-page render quality.
 
 export function Tikz({ source }: { source: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [failed, setFailed] = useState(false);
+  const [svg, setSvg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const reqId = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
-    const container = containerRef.current;
-    if (!container) return;
+    const id = ++reqId.current;
+    setSvg(null);
+    setError(null);
 
-    // Clear any previously rendered SVG (prevents duplication on re-render).
-    container.innerHTML = "";
+    // Debounce so rapid edits in the editor don't flood the render service.
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/render-tikz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source }),
+        });
+        const data = (await res.json()) as { svg?: string; error?: string };
+        // Ignore if a newer request superseded this one.
+        if (id !== reqId.current) return;
+        if (!res.ok || !data.svg) {
+          setError(data.error || `Render failed (${res.status})`);
+          return;
+        }
+        setSvg(data.svg);
+      } catch (err) {
+        if (id !== reqId.current) return;
+        setError((err as Error).message);
+      }
+    }, 400);
 
-    const scriptEl = document.createElement("script");
-    scriptEl.type = "text/tikz";
-    scriptEl.textContent = source;
-    container.appendChild(scriptEl);
-
-    loadTikzRuntime()
-      .then(() => {
-        if (cancelled) return;
-        // If the global processor exposes a manual trigger, call it.
-        const proc = (window as unknown as { tikzjax?: { process?: () => void } })
-          .tikzjax;
-        proc?.process?.();
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-
-    return () => {
-      cancelled = true;
-      if (container) container.innerHTML = "";
-    };
+    return () => clearTimeout(timer);
   }, [source]);
 
-  if (failed) {
+  if (error) {
     return (
-      <div className="tikz-fallback" role="img" aria-label="TikZ diagram source">
-        {source}
+      <div className="tikz-fallback" role="img" aria-label="TikZ diagram failed">
+        <strong>TikZ render error:</strong> {error}
       </div>
     );
   }
 
-  return <div className="tikz-figure" ref={containerRef} />;
+  if (!svg) {
+    return (
+      <div className="tikz-fallback" role="img" aria-label="TikZ diagram loading">
+        Rendering diagram…
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="tikz-figure"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
 }

@@ -49,6 +49,8 @@ export const config = {
     "/admin/:path*",
     "/api/posts/:path*",
     "/api/upload/:path*",
+    // Render proxy used by the editor preview — admin-only (heavy LaTeX compile).
+    "/api/render-tikz/:path*",
     // External AI agent API (bearer-key auth, separate from the admin cookie).
     "/api/agent/:path*",
   ],
