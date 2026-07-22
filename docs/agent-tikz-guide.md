@@ -1,23 +1,26 @@
-# Hướng dẫn vẽ hình TikZ cho AI Agent
+# Hướng dẫn tạo hình vẽ TikZ cho AI Agent
 
-Tài liệu này dành cho AI Agent (hoặc người) tạo bài viết blog có sơ đồ hình học
-qua Agent API. **Đọc kỹ phần "Quy tắc escape"** — đây là nguyên nhân 100% các lỗi
-hình không hiện ra.
+Tài liệu này dành cho AI Agent (hoặc người) viết bài blog có sơ đồ hình học, đồ
+thị, sơ đồ luồng, v.v. **Đọc kỹ phần "Quy tắc escape" và "Lỗi thường gặp"** —
+đó là nguyên nhân 100% các lỗi hình không hiện hoặc hiện sai.
 
 ---
 
-## Tóm tắt cho Agent (copy vào system prompt)
+## Tóm tắt cho Agent (dán vào system prompt)
 
 ```
-Khi tạo bài có sơ đồ hình học trên blog maths-blog:
-1. Dùng fenced code block với ngôn ngữ "tikz" (ba dấu backtick + tikz)
-2. Bên trong: mã TikZ chuẩn (giống Overleaf/LaTeX), chỉ phần thân \begin{tikzpicture}...\end{tikzpicture}
+Khi tạo bài có sơ đồ hình học/đồ thị trên blog maths-blog:
+1. bodyMarkdown là Markdown. Sơ đồ để trong code block: ba dấu backtick + tikz
+2. Bên trong: mã TikZ chuẩn (như Overleaf/LaTeX), chỉ phần thân
+   \begin{tikzpicture} ... \end{tikzpicture}
 3. KHÔNG gửi \documentclass, \usepackage, \begin{document} — blog tự thêm
-4. Backslash đơn: \draw, \node, \fill — KHÔNG phải \\draw
-5. Khi gửi qua HTTP/JSON: mỗi \ phải thành \\ (JSON escaping)
-6. Thư viện TikZ đã có sẵn: arrows.meta, calc, decorations.pathreplacing, positioning, shapes.geometric
-7. Hình được compile bằng LaTeX thật khi lưu bài, render ra SVG chất lượng Overleaf
-8. SAI escape → hình không hiện, chỉ thấy ô trống. ĐÚNG → sơ đồ đẹp như sách giáo khoa
+4. Backslash ĐƠN trong mã nguồn: \draw, \node, \fill — KHÔNG phải \\draw
+5. Mỗi lệnh TikZ kết thúc bằng dấu chấm phẩy ;
+6. Thư viện có sẵn: arrows.meta, calc, decorations.pathreplacing,
+   positioning, shapes.geometric (không cần \usetikzlibrary)
+7. Hình được compile bằng LaTeX thật (xelatex) khi lưu bài → SVG chất lượng Overleaf
+8. Unicode OK: tiếng Việt, dấu phụ, CJK đều render được
+9. SAI escape → hình trống hoặc vỡ. ĐÚNG → sơ đồ đẹp như sách giáo khoa
 ```
 
 ---
@@ -29,7 +32,7 @@ Bài viết = Markdown. Phần hình nằm trong code block đánh dấu `tikz`:
 ````markdown
 ## Định lý Pythagoras
 
-Xét tam giác vuông tại A:
+Xét tam giác vuông tại $A$:
 
 ```tikz
 \begin{tikzpicture}[thick]
@@ -39,8 +42,8 @@ Xét tam giác vuông tại A:
   \node[below left]  at (0,0) {$A$};
   \node[below right] at (4,0) {$B$};
   \node[above left]  at (0,3) {$C$};
-  \node[below] at (2,0)    {$b$};
-  \node[left]  at (0,1.5)  {$a$};
+  \node[below]       at (2,0) {$b$};
+  \node[left]        at (0,1.5) {$a$};
   \node[above right] at (2,1.5) {$c$};
 \end{tikzpicture}
 ```
@@ -48,55 +51,82 @@ Xét tam giác vuông tại A:
 Khi đó $a^2 + b^2 = c^2$.
 ````
 
-Toàn bộ nội dung bạn muốn render là **phần thân** nằm giữa cặp dấu
-`` ```tikz `` và `` ``` ``. Blog sẽ tự bọc trong documentclass + usepackage.
+Toàn bộ nội dung hình nằm giữa cặp `` ```tikz `` và `` ``` ``. Blog sẽ tự động
+bọc trong `\documentclass{standalone}` + `\usepackage{tikz}` + các thư viện.
 
 ---
 
 ## Quy tắc escape (QUAN TRỌNG NHẤT)
 
-Đây là lỗi phổ biến nhất. TikZ dùng backslash đơn (`\draw`), nhưng khi gửi qua
-JSON thì mỗi `\` phải được viết thành `\\`.
+Đây là lỗi phổ biến nhất, gây ra **hình trống** hoặc **hình vỡ** (chữ chồng chất).
 
-| Bạn muốn vẽ | Trong mã TikZ | Trong JSON (gửi qua API) |
-|-------------|---------------|--------------------------|
-| `\draw`     | `\draw`       | `\\draw`                 |
-| `\node`     | `\node`       | `\\node`                 |
-| `\fill`     | `\fill`       | `\\fill`                 |
-| `\begin{...}` | `\begin{tikzpicture}` | `\\begin{tikzpicture}` |
-| `$x^2$` (label toán) | `$x^2$` | `$x^2$` (dollar không cần escape) |
+### Nguyên tắc
 
-**Dấu hiệu nhận biết lỗi escape:**
+TikZ dùng **backslash đơn** (`\draw`). Khi chuỗi đó được gửi qua HTTP/JSON, mỗi
+`\` phải được viết thành `\\` — NHƯNG bộ mã hóa JSON **tự động làm việc này**.
+**KHÔNG tự nhân đôi backslash thủ công.**
+
+| Bạn muốn vẽ | Trong mã TikZ (bodyMarkdown) | Trong JSON gửi đi (tự động) |
+|-------------|------------------------------|----------------------------|
+| vẽ đường    | `\draw`                      | `\\draw`                   |
+| đặt nhãn    | `\node`                      | `\\node`                   |
+| tô màu      | `\fill`                      | `\\fill`                   |
+| bắt đầu     | `\begin{tikzpicture}`       | `\\begin{tikzpicture}`    |
+
+### Cách tránh lỗi
+
+| Ngôn ngữ | Cách viết mã TikZ | Lý do |
+|----------|-------------------|-------|
+| **Python** | `r"\draw ..."` (raw string) + gửi qua `json=...` | `json=` tự escape `\` → `\\` |
+| **Node.js** | ``String.raw`\draw ...` `` + `JSON.stringify` | `JSON.stringify` tự escape |
+| **Shell/curl** | đọc body từ **file** (`--data @file`) | tránh shell escape |
+
+### Dấu hiệu nhận biết lỗi escape
+
 - Hình trống, hoặc chỉ hiện 1-2 ký tự text lộn xộn
-- Trong DevTools (F12) → Console thấy: `Missing svg element`
-- Tam giác/sơ đồ biến thành "khung viền đen" nhạt
-
-**Cách kiểm tra trước khi gửi:** paste body vào công cụ JSON validator — nếu
-`\\begin` → đúng; nếu `\\\\begin` hoặc `\begin` (lỗi parse) → sai.
+- Console trình duyệt: `Missing svg element` hoặc WASM error `unreachable`
+- Hình hiện nhưng chỉ là text vỡ (chữ chồng lên nhau)
 
 ---
 
-## Thư viện TikZ đã có sẵn
+## Quy tắc bắt buộc khi viết TikZ
 
-Blog tự nạp các thư viện sau, **KHÔNG cần `\usetikzlibrary` trong mã**:
-
-- `arrows.meta` — mũi tên đẹp (`-Stealth`, `-Latex`)
-- `calc` — tính toán tọa độ (`$(A)!0.5!(B)$` = trung điểm AB)
-- `decorations.pathreplacing` — vẽ ngoặc nhọn/đánh dấu đoạn (`decorate, decoration={brace}`)
-- `positioning` — định vị tương đối (`right=of A`)
-- `shapes.geometric` — hình tròn, elip, đa giác
-
-Nếu cần thư viện khác (vd `plot`, `intersections`, `angles`) → yêu cầu người quản
-trị thêm vào `render-service/app.js` (dòng `\usetikzlibrary{...}`).
+| Quy tắc | Giải thích |
+|---------|------------|
+| **Chỉ gửi phần thân** `\begin{tikzpicture}...\end{tikzpicture}` | Blog tự thêm documentclass/usepackage |
+| **Mỗi lệnh kết thúc bằng `;`** | `\draw (0,0) -- (1,0);` (quên `;` → lỗi compile) |
+| **Backslash đơn** trong mã nguồn | `\draw`, không phải `\\draw` |
+| **Không gửi `\documentclass`** | Gửi → lỗi compile |
+| **Không gửi `\usepackage`** | Thư viện đã có sẵn (xem bên dưới) |
 
 ---
 
-## Ví dụ mẫu (verified hoạt động)
+## Thư viện TikZ có sẵn
 
-### 1. Tam giác vuông có nhãn (đã test, render đẹp)
+Blog tự nạp các thư viện sau, **KHÔNG cần `\usetikzlibrary`**:
 
-**Mã TikZ (phần thân):**
-```latex
+| Thư viện | Dùng cho |
+|----------|----------|
+| `arrows.meta` | Mũi tên đẹp: `-Stealth`, `-Latex`, `-To` |
+| `calc` | Tính toán tọa độ: `$(A)!0.5!(B)$` (trung điểm) |
+| `decorations.pathreplacing` | Ngoặc nhọn đánh dấu đoạn |
+| `positioning` | Định vị tương đối: `right=of A`, `below=2cm of B` |
+| `shapes.geometric` | Hình tròn, elip, đa giác |
+
+Nếu cần thư viện khác (vd `angles`, `intersections`, `patterns`, `pgfplots`)
+→ báo quản trị viên thêm vào `render-service/app.js`.
+
+---
+
+## Ví dụ mẫu (đã verify render đúng hình)
+
+Tất cả ví dụ dưới đây đã được test với render service — render ra SVG có hình
+vẽ thật (đường nét, tô màu), không phải chỉ text.
+
+### 1. Tam giác vuông có nhãn và dấu góc vuông
+
+````markdown
+```tikz
 \begin{tikzpicture}[thick]
   \fill[blue!15] (0,0) -- (4,0) -- (0,3) -- cycle;
   \draw (0,0) -- (4,0) -- (0,3) -- cycle;
@@ -104,15 +134,17 @@ trị thêm vào `render-service/app.js` (dòng `\usetikzlibrary{...}`).
   \node[below left]  at (0,0) {$A$};
   \node[below right] at (4,0) {$B$};
   \node[above left]  at (0,3) {$C$};
-  \node[below] at (2,0)    {$b$};
-  \node[left]  at (0,1.5)  {$a$};
+  \node[below]       at (2,0) {$b$};
+  \node[left]        at (0,1.5) {$a$};
   \node[above right] at (2,1.5) {$c$};
 \end{tikzpicture}
 ```
+````
 
-### 2. Đường tròn đơn vị + góc
+### 2. Đường tròn đơn vị + góc θ
 
-```latex
+````markdown
+```tikz
 \begin{tikzpicture}[thick, scale=1.8]
   \fill[blue!10] (0,0) -- (0.866,0.5) arc (30:0:1) -- cycle;
   \draw (0,0) circle (1);
@@ -123,23 +155,27 @@ trị thêm vào `render-service/app.js` (dòng `\usetikzlibrary{...}`).
   \node[below] at (0.5,0) {$1$};
 \end{tikzpicture}
 ```
+````
 
-### 3. Đồ thị hàm số $y = x^2$
+### 3. Đồ thị hàm số y = x²
 
-```latex
+````markdown
+```tikz
 \begin{tikzpicture}[thick, scale=0.8]
   \draw[->] (-2.7,0) -- (2.7,0) node[right] {$x$};
   \draw[->] (0,-0.5) -- (0,4.3) node[above] {$y$};
   \foreach \x in {-2,-1,1,2} \draw (\x,0.1) -- (\x,-0.1) node[below] {$\x$};
   \foreach \y in {1,2,3} \draw (0.1,\y) -- (-0.1,\y) node[left] {$\y$};
-  \draw[blue, domain=-2:2, smooth, samples=40] plot (\x, {\x*\x});
-  \node[blue] at (1.7,3.7) {$y = x^2$};
+  \draw[domain=-2:2, smooth, samples=40] plot (\x, {\x*\x});
+  \node at (1.7,3.7) {$y = x^2$};
 \end{tikzpicture}
 ```
+````
 
-### 4. Sơ đồ luồng (flowchart với arrows.meta + positioning)
+### 4. Sơ đồ luồng (flowchart, nhãn tiếng Việt OK)
 
-```latex
+````markdown
+```tikz
 \begin{tikzpicture}[
   thick,
   box/.style={draw, rounded corners, minimum width=2.5cm, minimum height=1cm, fill=blue!8},
@@ -152,13 +188,12 @@ trị thêm vào `render-service/app.js` (dòng `\usetikzlibrary{...}`).
   \draw[arr] (process) -- (output);
 \end{tikzpicture}
 ```
+````
 
-### 5. Tam giác có đo góc (thư viện angles)
+### 5. Tam giác có đo góc + nhãn cạnh
 
-> Lưu ý: cần thêm thư viện `angles` — báo quản trị viên nếu muốn dùng. Ví dụ
-> này dùng `calc` để đặt nhãn góc thủ công:
-
-```latex
+````markdown
+```tikz
 \begin{tikzpicture}[thick]
   \coordinate (A) at (0,0);
   \coordinate (B) at (5,0);
@@ -167,192 +202,205 @@ trị thêm vào `render-service/app.js` (dòng `\usetikzlibrary{...}`).
   \node[below left]  at (A) {$A$};
   \node[below right] at (B) {$B$};
   \node[above]       at (C) {$C$};
-  % cung góc tại A
   \draw (0.6,0) arc (0:60:0.6);
   \node at (0.9,0.25) {$\alpha$};
-  % đánh dấu cạnh đều
-  \draw ($(A)!0.5!(B)$) node[below] {cạnh đáy};
 \end{tikzpicture}
 ```
+````
 
 ---
 
-## Cú pháp TikZ thường dùng (cheat sheet)
+## Bảng tham chiếu nhanh (cheat sheet)
+
+### Lệnh vẽ
 
 | Lệnh | Tác dụng | Ví dụ |
 |------|----------|-------|
-| `\draw` | vẽ đường thẳng/đường cong | `\draw (0,0) -- (3,2);` |
-| `\fill` | tô vùng khép kín | `\fill[red!30] (0,0) -- (1,0) -- (1,1) -- cycle;` |
-| `\filldraw` | vẽ + tô cùng lúc | `\filldraw[fill=blue!20,draw=black] (0,0) circle (1);` |
-| `\node` | đặt text tại tọa độ | `\node at (2,0) {chào};` |
-| `\node[...]` | text có style | `\node[below, red] at (2,0) {...};` |
-| `circle (r)` | hình tròn bán kính r | `\draw (0,0) circle (2);` |
-| `rectangle` | hình chữ nhật | `\draw (0,0) rectangle (3,2);` |
-| `--` | nối điểm | `(0,0) -- (1,1)` |
-| `cycle` | khép kín đường | `(0,0) -- (2,0) -- (1,1) -- cycle` |
-| `arc` | cung tròn | `\draw (1,0) arc (0:90:1);` |
-| `->`, `<-`, `<->` | đầu mũi tên | `\draw[->] (0,0) -- (3,0);` |
-| `-Stealth` | mũi tên đẹp (cần arrows.meta) | `\draw[-Stealth] (0,0) -- (3,0);` |
+| `\draw` | Vẽ đường thẳng/đường cong | `\draw (0,0) -- (3,2);` |
+| `\fill` | Tô vùng khép kín | `\fill[red!30] (0,0) -- (1,0) -- (1,1) -- cycle;` |
+| `\filldraw` | Vẽ + tô cùng lúc | `\filldraw[fill=blue!20] (0,0) circle (1);` |
+| `\node` | Đặt text tại tọa độ | `\node at (2,0) {chào};` |
+| `\node[...]` | Text có style | `\node[below, red] at (2,0) {...};` |
+| `\coordinate` | Đặt tên tọa độ | `\coordinate (A) at (0,0);` |
+| `\foreach` | Lặp (dùng cho ticks) | `\foreach \x in {1,2,3} \draw (\x,0) -- (\x,0.1);` |
 
-**Options thường dùng** (trong `[...]` sau tikzpicture hoặc lệnh):
-- `thick`, `very thick`, `ultra thick` — độ dày nét
-- `blue`, `red!30` (đỏ pha 30%) — màu
-- `scale=2` — phóng to toàn bộ
-- `dashed`, `dotted` — nét đứt/chấm
-- `fill=blue!20` — màu tô
+### Hình cơ bản
 
-**Đặt nhãn toán học:** dùng `$...$` (KaTeX):
-- `$A$`, `$B$`, `$\theta$`, `$\alpha$`, `$x^2$`, `$\frac{a}{b}$`
+| Lệnh | Hình | Ví dụ |
+|------|------|-------|
+| `circle (r)` | Hình tròn | `\draw (0,0) circle (2);` |
+| `rectangle` | Hình chữ nhật | `\draw (0,0) rectangle (3,2);` |
+| `arc (...)` | Cung tròn | `\draw (1,0) arc (0:90:1);` |
+| `-- cycle` | Khép kín đường | `(0,0) -- (2,0) -- (1,1) -- cycle` |
+| `plot (...)` | Đồ thị hàm | `\draw plot (\x, {\x*\x});` |
+
+### Tùy chọn (trong `[...]`)
+
+| Tùy chọn | Tác dụng |
+|----------|----------|
+| `thick`, `very thick`, `ultra thick` | Độ dày nét |
+| `blue`, `red!30` | Màu (tên hoặc pha %) |
+| `scale=2` | Phóng to toàn bộ |
+| `dashed`, `dotted` | Nét đứt/chấm |
+| `fill=blue!20` | Màu tô |
+| `->`, `<-`, `<->` | Đầu mũi tên |
+| `-Stealth` | Mũi tên đẹp (cần arrows.meta) |
+| `rounded corners` | Bo góc |
+| `minimum width=2cm` | Chiều rộng tối thiểu (node) |
+
+### Nhãn toán học (KaTeX)
+
+Dùng `$...$` trong `\node`:
+- `$A$`, `$B$`, `$\theta$`, `$\alpha$`, `$\beta$`
+- `$x^2$`, `$\frac{a}{b}$`, `$\sqrt{2}$`
+- `$f(x) = \sin(x)$`
 
 ---
 
 ## Quy trình tạo bài có hình (cho Agent)
 
-### Python (requests)
+### Cách 1: Dùng helper script (khuyến nghị)
+
+Helper script đọc body từ **file** → backslash sống sót 100% (không bị shell
+escape). Đây là cách an toàn nhất.
+
+```bash
+# 1. Lưu nội dung bài vào file (vd article.md)
+#    Viết \draw bình thường (backslash đơn)
+
+# 2. Tạo bài qua helper
+node ~/.agents/skills/maths-blog-publisher/scripts/publish.mjs create \
+  --title "Định lý Pythagoras" \
+  --file article.md \
+  --slug pythagoras \
+  --category "Geometry" \
+  --tags "geometry,pythagoras" \
+  --publish
+```
+
+### Cách 2: Gọi API trực tiếp (Python)
 
 ```python
-import requests, json, os
+import requests
 
 BASE = "https://maths-blog.vercel.app"
-HEADERS = {"Authorization": f"Bearer {os.environ['AGENT_API_KEY']}"}
+KEY = "91d14d526d70bca8e4cd41ad811d68adf551abf8148128974b931242b7642fbe"
+HEADERS = {"Authorization": f"Bearer {KEY}"}
 
-# Mã TikZ — viết BÌNH THƯỜNG với backslash đơn trong Python string
-# (json.dumps tự escape \ thành \\ khi gửi)
+# Mã TikZ — dùng raw string (r"..."), backslash đơn giữ nguyên
+# json= sẽ tự escape \ thành \\ khi gửi
 tikz = r"""
 \begin{tikzpicture}[thick]
   \fill[blue!15] (0,0) -- (4,0) -- (0,3) -- cycle;
   \draw (0,0) -- (4,0) -- (0,3) -- cycle;
-  \node[below] at (2,0) {$b$};
+  \node[below left] at (0,0) {$A$};
+  \node[below right] at (4,0) {$B$};
+  \node[above left] at (0,3) {$C$};
 \end{tikzpicture}
 """.strip()
 
-body_markdown = f"""## Tam giác vuông
+body_markdown = f"""## Định lý Pythagoras
 
 ```tikz
 {tikz}
 ```
 
-Khi đó $a^2 + b^2 = c^2$.
-"""
+Khi đó $a^2 + b^2 = c^2$."""
 
 resp = requests.post(
     f"{BASE}/api/agent/posts",
     headers=HEADERS,
     json={
         "title": "Định lý Pythagoras",
-        "slug": "pythagoras-demo",
+        "slug": "pythagoras",
         "bodyMarkdown": body_markdown,
         "category": "Geometry",
         "tags": ["geometry", "pythagoras"],
         "status": "published",
     },
 )
-print(resp.status_code, resp.json())
+print(resp.status_code, resp.json().get("post", {}).get("id"))
 ```
 
-> **Mẹo Python:** dùng raw string `r"..."` cho mã TikZ → backslash giữ nguyên,
-> rồi để `json=` (không phải `data=`) tự escape khi gửi. KHÔNG tự thêm `\\`.
+> **Quan trọng:** dùng `json=` (không phải `data=`) và raw string `r"..."`.
+> KHÔNG tự thêm `\\` — `json=` tự escape.
 
-### Node.js (fetch)
+### Cách 3: Gọi API trực tiếp (Node.js)
 
 ```javascript
 const tikz = String.raw`
 \begin{tikzpicture}[thick]
   \draw (0,0) -- (4,0) -- (0,3) -- cycle;
-  \node[below] at (2,0) {$b$};
+  \node[below left] at (0,0) {$A$};
 \end{tikzpicture}
 `.trim();
 
-const bodyMarkdown = `## Tam giác\n\n\`\`\`tikz\n${tikz}\n\`\`\`\n\n$a^2+b^2=c^2$.`;
+const bodyMarkdown = `## Định lý\n\n\`\`\`tikz\n${tikz}\n\`\`\`\n\n$a^2+b^2=c^2$.`;
 
 const resp = await fetch(`${BASE}/api/agent/posts`, {
   method: "POST",
   headers: {
-    Authorization: `Bearer ${process.env.AGENT_API_KEY}`,
+    Authorization: `Bearer ${KEY}`,
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    title: "Pythagoras",
-    slug: "pythagoras-demo",
+    title: "Định lý Pythagoras",
     bodyMarkdown,
     status: "published",
   }),
 });
 ```
 
-> **Mẹo Node:** dùng `String.raw` để giữ backslash đơn, rồi `JSON.stringify` tự
-> escape khi gửi.
-
-### OpenAI function-calling (schema tool)
-
-Nếu Agent là LLM gọi API như một tool, dùng schema này:
-
-```json
-{
-  "name": "create_post",
-  "description": "Tạo bài viết blog. bodyMarkdown hỗ trợ KaTeX ($...$) và sơ đồ TikZ (code block ```tikz). TikZ dùng backslash ĐƠN trong source.",
-  "parameters": {
-    "type": "object",
-    "required": ["title", "bodyMarkdown"],
-    "properties": {
-      "title": { "type": "string" },
-      "bodyMarkdown": {
-        "type": "string",
-        "description": "Markdown. Cho sơ đồ: dùng code block ```tikz với mã \\begin{tikzpicture}...\\end{tikzpicture}. Backslash ĐƠN trong source TeX (\\draw không phải \\\\draw)."
-      },
-      "status": { "type": "string", "enum": ["draft", "published"] },
-      "tags": { "type": "array", "items": { "type": "string" } },
-      "category": { "type": "string" },
-      "slug": { "type": "string" },
-      "deck": { "type": "string" },
-      "author": { "type": "string" }
-    }
-  }
-}
-```
+> **Quan trọng:** dùng `String.raw` để giữ backslash đơn, rồi `JSON.stringify`
+> tự escape khi gửi.
 
 ---
 
-## Khắc phục sự cố (troubleshooting)
+## Lỗi thường gặp + cách sửa
 
-| Triệu chứng | Nguyên nhân | Khắc phục |
-|-------------|-------------|-----------|
-| Hình trống / chỉ 1 ký tự text | Backslash bị escape kép (`\\draw` thay vì `\draw` trong mã nguồn) | Kiểm tra: trong `body_markdown` phải là `\draw` (đơn), JSON sẽ tự thêm `\\` |
-| Console: `Missing svg element` | Mã TikZ không hợp lệ (thường do escape) | Đảm bảo `\begin{tikzpicture}` có, tất cả lệnh kết thúc bằng `;` |
-| Ô đen / nền tối | (đã fix) — giờ không còn | Nếu vẫn thấy: báo quản trị viên |
-| Hình mờ/nhạt | Dùng TikZJax fallback (render cache chưa có) | Bình thường khi Blob chưa wire; vẫn đọc được |
-| Lỗi 500 khi lưu bài | Mã TikZ lỗi cú pháp → compile fail | Lưu bài vẫn thành công (hình rơi về fallback); sửa mã rồi lưu lại |
+| Triệu chứng | Nguyên nhân | Cách sửa |
+|-------------|-------------|----------|
+| Hình trống / chỉ 1-2 ký tự | Backslash bị escape kép (`\\draw` trong mã nguồn) | Dùng raw string + `json=`/`JSON.stringify` (không tự thêm `\\`) |
+| Console: `Missing svg element` | Mã TikZ không hợp lệ | Kiểm tra `;` cuối mỗi lệnh, `\begin`/`\end` khớp |
+| Hình vỡ: chữ chồng lên nhau | (đã sửa) render service cũ bỏ drawing specials | Đã fix; đảm bảo cache được re-populate |
+| Lỗi 500 khi lưu bài | Mã TikZ lỗi cú pháp → compile fail | Bài vẫn lưu thành công; sửa mã rồi lưu lại |
 | Hình cũ không update | Cache theo hash nội dung | Đổi nội dung TikZ (dù 1 ký tự) → hash đổi → render lại |
+| "Diagram unavailable" | Render service đang cold-start (Render free tier) | Reload trang sau vài giây, hoặc chạy `populate-tikz-cache.mjs` |
 
 ### Kiểm tra mã TikZ trước khi gửi
 
-Paste mã vào https://overleaf.com — nếu compile được ở Overleaf (với
-`\documentclass{standalone}\usepackage{tikz}\begin{document}...\end{document}`)
-thì sẽ render được trên blog.
+Paste mã vào [Overleaf](https://overleaf.com) với wrapper:
+```latex
+\documentclass{standalone}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,decorations.pathreplacing,positioning,shapes.geometric}
+\begin{document}
+% paste mã của bạn ở đây
+\end{document}
+```
+Nếu compile được ở Overleaf → sẽ render được trên blog.
 
 ---
 
 ## Giới hạn hiện tại
 
-1. **Không gửi `\documentclass`/`\usepackage`/`\begin{document}`** — blog tự thêm.
-   Nếu gửi, render sẽ lỗi.
-2. **Chỉ gửi phần thân `\begin{tikzpicture}...\end{tikzpicture}`.**
-3. **Thư viện cố định**: arrows.meta, calc, decorations.pathreplacing, positioning,
-   shapes.geometric. Cần thêm → báo quản trị viên.
-4. **Gói LaTeX cố định**: tikz (+ các thư viện trên). Không dùng pgfplots, tikz-cd,
-   circuitikz... unless thêm vào service.
-5. **Render mất 3-8 giây/diagram** (LaTeX compile thật). Lưu bài có nhiều hình sẽ
-   chậm hơn — bình thường.
-6. **Mỗi lệnh TikZ phải kết thúc bằng `;`** — quên `;` = lỗi compile.
+1. **Chỉ gửi phần thân** `\begin{tikzpicture}...\end{tikzpicture}`
+2. **Không gửi** `\documentclass`, `\usepackage`, `\begin{document}`
+3. **Thư viện cố định**: arrows.meta, calc, decorations.pathreplacing,
+   positioning, shapes.geometric. Cần thêm → báo quản trị viên
+4. **Không có** pgfplots, tikz-cd, circuitikz (trừ khi thêm vào service)
+5. **Render mất 3-8 giây/diagram** (LaTeX compile thật). Lưu bài nhiều hình sẽ chậm
+6. **Render service cold-start**: Render.com free tier ngủ sau 15 phút không dùng.
+   Lần render đầu sau ngủ ~30 giây. SVG đã cache trong DB không bị ảnh hưởng
 
 ---
 
 ## Checklist trước khi gửi bài có hình
 
-- [ ] Mã TikZ chỉ chứa phần thân (có `\begin{tikzpicture}` và `\end{tikzpicture}`)
+- [ ] Mã TikZ chỉ chứa phần thân (có `\begin{tikzpicture}` + `\end{tikzpicture}`)
 - [ ] Không có `\documentclass`, `\usepackage`, `\begin{document}`
-- [ ] Mọi lệnh kết thúc bằng `;` (`\draw ...;`, `\node ...;`)
-- [ ] Trong `body_markdown` (string nguồn): backslash ĐƠN (`\draw`, không `\\draw`)
-- [ ] Trong payload JSON gửi đi: mỗi `\` thành `\\` (tự động nếu dùng `json=` /
-      `JSON.stringify` / `String.raw`)
+- [ ] Mọi lệnh kết thúc bằng `;` (`\draw ...;`, `\node ...;`, `\fill ...;`)
+- [ ] Trong `bodyMarkdown` (string nguồn): backslash **ĐƠN** (`\draw`, không `\\draw`)
+- [ ] Gửi qua `json=` (Python) / `JSON.stringify` (Node) / `--data @file` (curl)
+- [ ] Không tự nhân đôi backslash thủ công
 - [ ] Test: tạo 1 bài draft trước, xem có lỗi compile không, rồi mới publish
