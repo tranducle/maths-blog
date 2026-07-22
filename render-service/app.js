@@ -95,9 +95,12 @@ app.post("/convert", async (req, res) => {
   try {
     await writeFile(join(dir, "equation.tex"), latexTemplate(latexInput, scaleNum));
 
-    // xelatex → XDV (Unicode-safe), then dvisvgm → SVG. xelatex handles
-    // Vietnamese/accented/CJK text without inputenc. -no-shell-escape prevents
-    // \\write18. timeout kills a stuck compile so one bad input can't hang us.
+    // xelatex → PDF (Unicode-safe), then dvisvgm --pdf → SVG.
+    // CRITICAL: TikZ drawing operations (\draw, \fill) are emitted as PDF
+    // "specials". dvisvgm reading XDV (xelatex -no-pdf) DROPS those specials,
+    // producing an empty SVG with only text glyphs. Reading the PDF instead
+    // (--pdf mode) preserves all geometry. This is why diagrams previously
+    // rendered as collapsed text. -no-shell-escape prevents \write18.
     await execFileAsync(
       "timeout",
       [
@@ -106,7 +109,6 @@ app.post("/convert", async (req, res) => {
         "-no-shell-escape",
         "-interaction=nonstopmode",
         "-halt-on-error",
-        "-no-pdf", // emit .xdv for dvisvgm instead of .pdf
         "-output-directory",
         dir,
         join(dir, "equation.tex"),
@@ -118,12 +120,12 @@ app.post("/convert", async (req, res) => {
     await execFileAsync(
       "dvisvgm",
       [
+        "--pdf", // read PDF (preserves TikZ drawing specials), NOT XDV
         "--no-fonts",
         `--scale=${svgScale}`,
-        "--exact",
         "-o",
         join(dir, "out.svg"),
-        join(dir, "equation.xdv"),
+        join(dir, "equation.pdf"),
       ],
       { cwd: dir, maxBuffer: 8 * 1024 * 1024, timeout: 15_000 },
     );
