@@ -19,6 +19,7 @@ const rehypeKatexOptions = { throwOnError: false, errorColor: "#cc0000" };
 function buildComponents(
   tikzPlaceholder: boolean,
   tikzRenders?: TikzRenders | null,
+  tikzSvgs?: TikzRenders | null,
 ): Components {
   return {
     // Fix: ReactMarkdown wraps a fenced code block's <code> in a <pre>. The
@@ -44,9 +45,10 @@ function buildComponents(
       }
       return <pre {...props} />;
     },
-    // Intercept ```tikz fenced blocks. Prefer a server-rendered cached SVG
-    // (LaTeX-quality) when available; otherwise fall back to client-side
-    // TikZJax (DVI→SVG, lower fidelity but always works).
+    // Intercept ```tikz fenced blocks. Render priority:
+    //   1. cached blob URL (tikzRenders) — fastest, set at save time
+    //   2. inline SVG (tikzSvgs) — server-rendered on page load (no blob token)
+    //   3. <Tikz> client component — fetches /api/render-tikz (editor only)
     code(props) {
       const { className, children } = props;
       const match = /language-tikz/.test(className || "");
@@ -59,16 +61,28 @@ function buildComponents(
             </div>
           );
         }
-        // Look up a cached server-rendered SVG by content hash.
-        const cached = tikzRenders?.[hashKey(source)];
-        if (cached) {
+        const key = hashKey(source);
+        // 1. Cached blob URL (preferred when Blob token is wired).
+        const cachedUrl = tikzRenders?.[key];
+        if (cachedUrl) {
           return (
             <div className="tikz-figure">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={cached} alt="TikZ diagram" />
+              <img src={cachedUrl} alt="TikZ diagram" />
             </div>
           );
         }
+        // 2. Inline server-rendered SVG (works without a Blob token).
+        const inlineSvg = tikzSvgs?.[key];
+        if (inlineSvg) {
+          return (
+            <div
+              className="tikz-figure"
+              dangerouslySetInnerHTML={{ __html: inlineSvg }}
+            />
+          );
+        }
+        // 3. Client-side fallback (fetches the render proxy — editor preview).
         return <Tikz source={source} />;
       }
       return <code className={className}>{children}</code>;
@@ -88,11 +102,15 @@ export function MarkdownRenderer({
   markdown,
   tikzPlaceholder = false,
   tikzRenders = null,
+  tikzSvgs = null,
 }: {
   markdown: string;
   tikzPlaceholder?: boolean;
   // Accept either the raw DB JSON string (parsed internally) or a pre-parsed map.
   tikzRenders?: string | TikzRenders | null;
+  // Inline server-rendered SVGs: {hash → "<svg ...>"}. Used on public pages
+  // when no blob-cached URL exists yet. Computed server-side in the page.
+  tikzSvgs?: TikzRenders | null;
 }) {
   let parsedRenders: TikzRenders | null = null;
   if (tikzRenders) {
@@ -118,7 +136,7 @@ export function MarkdownRenderer({
         [rehypeKatex, rehypeKatexOptions],
         rehypeHighlight,
       ]}
-      components={buildComponents(tikzPlaceholder, parsedRenders)}
+      components={buildComponents(tikzPlaceholder, parsedRenders, tikzSvgs)}
     >
       {markdown}
     </ReactMarkdown>

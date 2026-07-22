@@ -20,6 +20,35 @@ export function hashKey(source: string): string {
   return (h >>> 0).toString(36);
 }
 
+/**
+ * Render every TikZ block in `md` to SVG on the server. Returns a {hash → svg}
+ * map (raw SVG strings, not blob URLs). Used by the public article page so
+ * diagrams render server-side without needing the client <Tikz> fallback or a
+ * cached blob URL. Renders are best-effort: a block that fails to compile is
+ * omitted from the map (the client falls back to the source text).
+ *
+ * If `cached` (the stored tikzRenders blob-URL map) has an entry for a block,
+ * that block is skipped here — the cached blob URL is preferred via a separate
+ * path. This function is for the no-blob-token case.
+ */
+export async function renderTikzBlocks(
+  md: string,
+  cached: TikzRenders | null = null,
+): Promise<TikzRenders> {
+  const blocks = extractTikzBlocks(md);
+  const out: TikzRenders = {};
+  for (const block of blocks) {
+    // Skip if a cached blob URL exists (the page prefers that path).
+    if (cached?.[block.hash]) continue;
+    try {
+      out[block.hash] = await renderTikz(block.source);
+    } catch (err) {
+      console.warn(`[tikz] server render failed for ${block.hash}:`, (err as Error).message);
+    }
+  }
+  return out;
+}
+
 /** Extract ```tikz fenced blocks from markdown. Returns [] if none. */
 export function extractTikzBlocks(md: string): TikzBlock[] {
   const blocks: TikzBlock[] = [];

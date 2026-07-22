@@ -5,6 +5,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { TableOfContents } from "@/components/table-of-contents";
 import { extractToc, readingTime, initials } from "@/lib/article-utils";
 import { formatDate } from "@/lib/format-date";
+import { renderTikzBlocks, type TikzRenders } from "@/lib/tikz-render";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,18 @@ export default async function ArticlePage({ params }: { params: Params }) {
   const minutes = readingTime(post.bodyMarkdown);
 
   const others = (await listPublished()).filter((p) => p.id !== post.id).slice(0, 3);
+
+  // Render TikZ blocks to SVG server-side so public visitors see diagrams
+  // immediately (no client fetch, no dependency on a Blob cache token). Blocks
+  // already cached as blob URLs (in tikzRenders) are skipped. Failures degrade
+  // gracefully to the client fallback.
+  let cachedRenders: TikzRenders | null = null;
+  try {
+    cachedRenders = post.tikzRenders ? JSON.parse(post.tikzRenders) : null;
+  } catch {
+    cachedRenders = null;
+  }
+  const tikzSvgs = await renderTikzBlocks(post.bodyMarkdown, cachedRenders);
 
   return (
     <div className="article-container">
@@ -42,6 +55,7 @@ export default async function ArticlePage({ params }: { params: Params }) {
         <MarkdownRenderer
           markdown={post.bodyMarkdown}
           tikzRenders={post.tikzRenders}
+          tikzSvgs={tikzSvgs}
         />
       </div>
 
