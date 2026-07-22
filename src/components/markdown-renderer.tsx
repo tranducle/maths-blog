@@ -20,6 +20,7 @@ function buildComponents(
   tikzPlaceholder: boolean,
   tikzRenders?: TikzRenders | null,
   tikzSvgs?: TikzRenders | null,
+  tikzErrors?: Record<string, string> | null,
 ): Components {
   return {
     // Fix: ReactMarkdown wraps a fenced code block's <code> in a <pre>. The
@@ -62,17 +63,27 @@ function buildComponents(
           );
         }
         const key = hashKey(source);
-        // 1. Cached blob URL (preferred when Blob token is wired).
-        const cachedUrl = tikzRenders?.[key];
-        if (cachedUrl) {
+        // 1. Cached render (saved at post-save time). The stored value is either
+        //    a Blob URL (when BLOB_READ_WRITE_TOKEN is set) or an inline SVG
+        //    string (default). Detect by prefix.
+        const cached = tikzRenders?.[key];
+        if (cached) {
+          if (/^https?:\/\//.test(cached)) {
+            return (
+              <div className="tikz-figure">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={cached} alt="TikZ diagram" />
+              </div>
+            );
+          }
           return (
-            <div className="tikz-figure">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={cachedUrl} alt="TikZ diagram" />
-            </div>
+            <div
+              className="tikz-figure"
+              dangerouslySetInnerHTML={{ __html: cached }}
+            />
           );
         }
-        // 2. Inline server-rendered SVG (works without a Blob token).
+        // 2. Inline server-rendered SVG (rendered on page load, not yet cached).
         const inlineSvg = tikzSvgs?.[key];
         if (inlineSvg) {
           return (
@@ -82,7 +93,20 @@ function buildComponents(
             />
           );
         }
-        // 3. Client-side fallback (fetches the render proxy — editor preview).
+        // 3. Render failed server-side (cold-start, compile error) — show a
+        //    placeholder instead of rendering nothing. Retry-friendly message.
+        const errMsg = tikzErrors?.[key];
+        if (errMsg) {
+          return (
+            <div className="tikz-fallback" role="img" aria-label="TikZ diagram unavailable">
+              <strong>Diagram unavailable.</strong>{" "}
+              {/timeout|abort|fetch/i.test(errMsg)
+                ? "The render service is starting up — reload the page in a few seconds."
+                : "This diagram could not be compiled."}
+            </div>
+          );
+        }
+        // 4. No render attempted (shouldn't happen on public pages) — client fallback.
         return <Tikz source={source} />;
       }
       return <code className={className}>{children}</code>;
@@ -103,6 +127,7 @@ export function MarkdownRenderer({
   tikzPlaceholder = false,
   tikzRenders = null,
   tikzSvgs = null,
+  tikzErrors = null,
 }: {
   markdown: string;
   tikzPlaceholder?: boolean;
@@ -111,6 +136,9 @@ export function MarkdownRenderer({
   // Inline server-rendered SVGs: {hash → "<svg ...>"}. Used on public pages
   // when no blob-cached URL exists yet. Computed server-side in the page.
   tikzSvgs?: TikzRenders | null;
+  // Blocks that failed server render: {hash → error message}. Shown as a
+  // placeholder instead of rendering nothing.
+  tikzErrors?: Record<string, string> | null;
 }) {
   let parsedRenders: TikzRenders | null = null;
   if (tikzRenders) {
@@ -136,7 +164,7 @@ export function MarkdownRenderer({
         [rehypeKatex, rehypeKatexOptions],
         rehypeHighlight,
       ]}
-      components={buildComponents(tikzPlaceholder, parsedRenders, tikzSvgs)}
+      components={buildComponents(tikzPlaceholder, parsedRenders, tikzSvgs, tikzErrors)}
     >
       {markdown}
     </ReactMarkdown>

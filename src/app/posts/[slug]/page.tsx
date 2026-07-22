@@ -23,15 +23,18 @@ export default async function ArticlePage({ params }: { params: Params }) {
 
   // Render TikZ blocks to SVG server-side so public visitors see diagrams
   // immediately (no client fetch, no dependency on a Blob cache token). Blocks
-  // already cached as blob URLs (in tikzRenders) are skipped. Failures degrade
-  // gracefully to the client fallback.
+  // already cached as blob URLs (in tikzRenders) are skipped. Failures are
+  // surfaced to the client as a placeholder (never blank).
   let cachedRenders: TikzRenders | null = null;
   try {
     cachedRenders = post.tikzRenders ? JSON.parse(post.tikzRenders) : null;
   } catch {
     cachedRenders = null;
   }
-  const tikzSvgs = await renderTikzBlocks(post.bodyMarkdown, cachedRenders);
+  const { svgs: tikzSvgs, errors: tikzErrors } = await renderTikzBlocks(
+    post.bodyMarkdown,
+    cachedRenders,
+  );
 
   return (
     <div className="article-container">
@@ -56,6 +59,7 @@ export default async function ArticlePage({ params }: { params: Params }) {
           markdown={post.bodyMarkdown}
           tikzRenders={post.tikzRenders}
           tikzSvgs={tikzSvgs}
+          tikzErrors={tikzErrors}
         />
       </div>
 
